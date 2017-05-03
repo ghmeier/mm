@@ -35,6 +35,7 @@ type mm struct {
 	help  bool
 	appt  handlers.Handler
 	avail handlers.Handler
+	code  handlers.Handler
 }
 
 func (m *mm) Init() {
@@ -49,6 +50,9 @@ func (m *mm) Init() {
 
 	m.avail = &handlers.Avail{}
 	m.avail.Init(m.key)
+
+	m.code = &handlers.Code{}
+	m.code.Init(m.key)
 }
 
 func (m *mm) Handle() {
@@ -57,6 +61,8 @@ func (m *mm) Handle() {
 		m.appt.Go(os.Args[2:])
 	case m.avail.Cmd():
 		m.avail.Go(os.Args[2:])
+	case m.code.Cmd():
+		m.code.Go(os.Args[2:])
 	default:
 		flag.Parse()
 		if m.nkey != "" {
@@ -74,6 +80,7 @@ func (m *mm) Usage() {
 	flag.PrintDefaults()
 	m.appt.Help()
 	m.avail.Help()
+	m.code.Help()
 }
 
 func (m *mm) handleKey() {
