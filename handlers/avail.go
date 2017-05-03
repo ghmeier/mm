@@ -13,10 +13,12 @@ type Avail struct {
 	*base
 	flags *flag.FlagSet
 	help  bool
+	id    string
 }
 
 type Availabilities struct {
 	Results []*Availability `json:"results,omitempty"`
+	Next    bool            `json:"hasNext"`
 }
 type Availability struct {
 	ID             string     `json:"_id"`
@@ -52,6 +54,7 @@ type Guest struct {
 func (a *Avail) Init(key string) {
 	a.base = new(key, "avail", "availability")
 	a.flags = flag.NewFlagSet(a.Cmd(), flag.ExitOnError)
+	a.flags.StringVar(&a.id, "id", "", "id of specific availability")
 	a.flags.BoolVar(&a.help, "help", false, "get detailed usage information")
 
 }
@@ -60,6 +63,11 @@ func (a *Avail) Go(args []string) {
 	a.flags.Parse(args)
 	if a.help {
 		a.Help()
+		return
+	}
+
+	if a.id != "" {
+		a.getByID(a.id)
 		return
 	}
 
@@ -72,10 +80,36 @@ func (a *Avail) Help() {
 }
 
 func (a *Avail) get() {
+	results := make([]*Availability, 0)
+
 	var res Availabilities
+	res.Next = true
+	for res.Next {
+		err := a.s.Send(&service.Request{
+			Method:  http.MethodGet,
+			URL:     fmt.Sprintf("%s", a.Url()),
+			Headers: map[string]string{"X-API-Token": a.Key()},
+		}, &res)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		results = append(results, res.Results...)
+	}
+
+	fmt.Printf("Found %d availabilities:\n", len(results))
+	for _, v := range res.Results {
+		a.printAvailability(v)
+	}
+}
+
+func (a *Avail) getByID(id string) {
+	var res Availability
 	err := a.s.Send(&service.Request{
 		Method:  http.MethodGet,
-		URL:     fmt.Sprintf("%s", a.Url()),
+		URL:     fmt.Sprintf("%s/%s", a.Url(), id),
 		Headers: map[string]string{"X-API-Token": a.Key()},
 	}, &res)
 
@@ -84,7 +118,18 @@ func (a *Avail) get() {
 		return
 	}
 
-	for _, v := range res.Results {
-		fmt.Printf("%+v\n", v)
+	a.printAvailability(&res)
+}
+
+func (a *Avail) printAvailability(v *Availability) {
+	fmt.Printf("ID: %s Title:\t%s\n", v.ID, v.Title)
+	if v.Location != "" {
+		fmt.Printf("Location:\t%s\n", v.Location)
+	}
+	if v.Description != "" {
+		fmt.Printf("Description: %s\n", v.Description)
+	}
+	for _, t := range v.Timeslots {
+		fmt.Printf("\tFrom %s to %s\n", t.Start.Format("Mon, May 2 1:00 AM"), t.End.Format("Mon, May 2 1:00 AM"))
 	}
 }
