@@ -30,10 +30,11 @@ func main() {
 }
 
 type mm struct {
-	key  string
-	nkey string
-	help bool
-	appt handlers.Handler
+	key   string
+	nkey  string
+	help  bool
+	appt  handlers.Handler
+	avail handlers.Handler
 }
 
 func (m *mm) Init() {
@@ -42,14 +43,20 @@ func (m *mm) Init() {
 	flag.StringVar(&m.nkey, "key", "", "your mixmax api key")
 	flag.BoolVar(&m.help, "help", false, "get detailed usage information")
 	flag.Usage = m.Usage
+
 	m.appt = &handlers.Appt{}
 	m.appt.Init(m.key)
+
+	m.avail = &handlers.Avail{}
+	m.avail.Init(m.key)
 }
 
 func (m *mm) Handle() {
 	switch os.Args[1] {
 	case m.appt.Cmd():
 		m.appt.Go(os.Args[2:])
+	case m.avail.Cmd():
+		m.avail.Go(os.Args[2:])
 	default:
 		flag.Parse()
 		if m.nkey != "" {
@@ -66,6 +73,7 @@ func (m *mm) Handle() {
 func (m *mm) Usage() {
 	flag.PrintDefaults()
 	m.appt.Help()
+	m.avail.Help()
 }
 
 func (m *mm) handleKey() {
