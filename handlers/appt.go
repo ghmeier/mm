@@ -3,22 +3,17 @@ package handlers
 import (
 	"flag"
 	"fmt"
-	"net/http"
 
-	"github.com/ghmeier/go-service"
+	"github.com/ghmeier/go-mixmax/appointmentlinks"
 )
 
 type Appt struct {
 	*base
+	Client *appointmentlinks.Client
 	flags  *flag.FlagSet
 	name   string
 	update string
 	help   bool
-}
-
-type AppointmentLinks struct {
-	UserId string `json:"userId,omitempty"`
-	Name   string `json:"name"`
 }
 
 func (a *Appt) Init(key string) {
@@ -38,72 +33,36 @@ func (a *Appt) Go(args []string) {
 	}
 
 	if a.name == "" && a.update == "" {
-		a.me()
+		links, err := a.Client.Me()
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		fmt.Printf("Mixmax Calendar URL: https://cal.mixmax.com/%s\n", links.Name)
 		return
 	}
 
 	if a.name == "" && a.update != "" {
-		a.set()
+		err := a.Client.Set(a.update)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		fmt.Println("Successfully Updated Mixmax Calendar URL.")
 		return
 	}
 
-	// send other request
-	a.get()
+	_, err := a.Client.Get(a.name)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println("Retrieved Appointment Links.")
 }
 
 func (a *Appt) Help() {
 	fmt.Println("appt: get mixmax calendar url")
 	a.flags.PrintDefaults()
-}
-
-func (a *Appt) me() {
-	var res AppointmentLinks
-	err := a.s.Send(&service.Request{
-		Method:  http.MethodGet,
-		URL:     fmt.Sprintf("%s/me", a.Url()),
-		Headers: map[string]string{"X-API-Token": a.Key()},
-	}, &res)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	fmt.Printf("Appointments at https://cal.mixmax.com/%s\n", res.Name)
-}
-
-func (a *Appt) set() {
-	req := &AppointmentLinks{Name: a.update}
-
-	err := a.s.Send(&service.Request{
-		Method: http.MethodPatch,
-		URL:    fmt.Sprintf("%s/me", a.Url()),
-		Data:   req,
-		Headers: map[string]string{
-			"X-API-Token": a.Key(),
-		},
-	}, nil)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	fmt.Printf("Updated mixmax calendar name to https://cal.mixmax.com/%s\n", a.update)
-}
-
-func (a *Appt) get() {
-	var res AppointmentLinks
-	err := a.s.Send(&service.Request{
-		Method:  http.MethodGet,
-		URL:     fmt.Sprintf("%s?name=%s", a.Url(), a.name),
-		Headers: map[string]string{"X-API-Token": a.Key()},
-	}, &res)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	fmt.Printf("Got appointments:\n")
 }

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/ghmeier/go-mixmax"
 	"github.com/ghmeier/mm/handlers"
 )
 
@@ -31,6 +32,7 @@ func main() {
 
 type mm struct {
 	key   string
+	c     *mixmax.Client
 	nkey  string
 	help  bool
 	appt  handlers.Handler
@@ -40,18 +42,19 @@ type mm struct {
 
 func (m *mm) Init() {
 	m.key = apiKey()
+	m.c = mixmax.New(m.key)
 
 	flag.StringVar(&m.nkey, "key", "", "your mixmax api key")
 	flag.BoolVar(&m.help, "help", false, "get detailed usage information")
 	flag.Usage = m.Usage
 
-	m.appt = &handlers.Appt{}
+	m.appt = &handlers.Appt{Client: m.c.AppointmentLinks}
 	m.appt.Init(m.key)
 
-	m.avail = &handlers.Avail{}
+	m.avail = &handlers.Avail{Client: m.c.Availability}
 	m.avail.Init(m.key)
 
-	m.code = &handlers.Code{}
+	m.code = &handlers.Code{Client: m.c.CodeSnippet}
 	m.code.Init(m.key)
 }
 
